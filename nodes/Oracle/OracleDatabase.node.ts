@@ -73,6 +73,11 @@ export class OracleDatabase implements INodeType {
                 default: '',
                 placeholder: 'Example: 12345',
                 required: true,
+                displayOptions: {
+                  show: {
+                    'direction': ['in', 'inout']
+                  }
+                },
               },
               {
                 displayName: 'Data Type',
