@@ -148,21 +148,23 @@ export class OracleDatabase implements INodeType {
       //get query
       let query = this.getNodeParameter("query", 0) as string;
 
-      const defaultExecuteManyOptions = {
-        outFormat: oracledb.OUT_FORMAT_OBJECT,
+      const executeManyOptions: oracledb.ExecuteManyOptions = {
         autoCommit: true,
-      };
-
-      const executeManyOptions = {
-        bindDefs: [
-          { ...defaultExecuteManyOptions, type: oracledb.NUMBER },
-        ],
+        bindDefs: { },
       };
 
       const bindParameters: oracledb.BindParameters[] = [];
 
       //get list of param objects entered by user:
-      const parameterIDataObjectList = ((this.getNodeParameter('params', 0, {}) as IDataObject).values as { name: string, value: string | number, datatype: string, parseInStatement: boolean }[]) || [];
+      const parameterIDataObjectList = (
+        (this.getNodeParameter('params', 0, {}) as IDataObject).values as {
+          name: string,
+          value: string | number,
+          datatype: string,
+          parseInStatement: boolean,
+          direction: string,
+        }[]
+      ) || [];
 
       for (const item of parameterIDataObjectList) {
         //set data type to be correct type
@@ -173,15 +175,29 @@ export class OracleDatabase implements INodeType {
           datatype = oracledb.STRING;
         }
 
-        executeManyOptions.bindDefs.push({
-          ...defaultExecuteManyOptions,
-          type: datatype,
-        });
+        const direction: Record<string, number> = {
+          "in": oracledb.BIND_IN,
+          "inout": oracledb.BIND_INOUT,
+          "out": oracledb.BIND_OUT,
+        }
+
+        executeManyOptions.bindDefs = {
+          ...executeManyOptions.bindDefs,
+          [item.name]: {
+            type: datatype,
+            dir: direction[item.direction],
+          }
+        };
 
         if (!item.parseInStatement) {
           //normal process.
           bindParameters.push({
-            [item.name]: { type: datatype, val: item.datatype && item.datatype === 'number' ? Number(item.value) : String(item.value) }
+            [item.name]: {
+              type: datatype,
+              val: item.datatype === 'number'
+                ? Number(item.value)
+                : String(item.value)
+            }
           });
           continue;
         }
@@ -197,7 +213,12 @@ export class OracleDatabase implements INodeType {
 
           //add new param to param list
           bindParameters.push({
-            [newParamName]: { type: datatype, val: item.datatype && item.datatype === 'number' ? Number(valList[i]) : String(valList[i]) }
+            [newParamName]: {
+              type: datatype,
+              val: item.datatype && item.datatype === 'number'
+                ? Number(valList[i])
+                : String(valList[i])
+              }
           });
 
           //create sql sting for list with new param names
